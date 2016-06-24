@@ -927,9 +927,6 @@ var MongoRunner, _startMongod, startMongoProgram, runMongoProgram, startMongoPro
                             "authenticationMechanisms=" + jsTest.options().authMechanism]);
                 }
             }
-            if (jsTest.options().auth) {
-                argArray.push(...['--setParameter', "enableLocalhostAuthBypass=false"]);
-            }
 
             // mongos only options. Note: excludes mongos with version suffix (ie. mongos-3.0).
             if (programName.endsWith('mongos')) {

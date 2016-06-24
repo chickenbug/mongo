@@ -99,6 +99,11 @@ public:
     static const NamespaceString defaultTempRolesCollectionNamespace;  // for mongorestore
 
     /**
+     * UserName object for the default 'root' user in the admin database.
+     */
+    static const UserName rootUserName;
+
+    /**
      * Query to match the auth schema version document in the versionCollectionNamespace.
      */
     static const BSONObj versionDocumentQuery;
@@ -295,7 +300,9 @@ public:
      * This should never be called from outside the AuthorizationManager - the only reason it's
      * public instead of private is so it can be unit tested.
      */
-    Status _initializeUserFromPrivilegeDocument(User* user, const BSONObj& privDoc);
+    Status _initializeUserFromPrivilegeDocument(OperationContext* txn,
+                                                User* user,
+                                                const BSONObj& privDoc);
 
     /**
      * Hook called by replication code to let the AuthorizationManager observe changes

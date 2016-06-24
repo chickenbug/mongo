@@ -549,7 +549,7 @@ Status validateServerOptions(const moe::Environment& params) {
 #endif
 
     bool haveAuthenticationMechanisms = true;
-    bool hasAuthorizationEnabled = false;
+    bool hasAuthorizationEnabled = true;
     if (params.count("security.authenticationMechanisms") &&
         params["security.authenticationMechanisms"].as<std::vector<std::string>>().empty()) {
         haveAuthenticationMechanisms = false;

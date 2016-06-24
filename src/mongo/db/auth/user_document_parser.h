@@ -33,6 +33,7 @@
 #include "mongo/db/auth/action_set.h"
 #include "mongo/db/auth/user.h"
 #include "mongo/db/jsobj.h"
+#include "mongo/db/operation_context.h"
 
 namespace mongo {
 
@@ -68,7 +69,9 @@ public:
 
     std::string extractUserNameFromUserDocument(const BSONObj& doc) const;
 
-    Status initializeUserCredentialsFromUserDocument(User* user, const BSONObj& privDoc) const;
+    Status initializeUserCredentialsFromUserDocument(OperationContext* txn,
+                                                     User* user,
+                                                     const BSONObj& privDoc) const;
 
     Status initializeUserRolesFromUserDocument(const BSONObj& doc, User* user) const;
     Status initializeUserIndirectRolesFromUserDocument(const BSONObj& doc, User* user) const;

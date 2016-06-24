@@ -74,16 +74,6 @@ void logCommonStartupWarnings(const ServerGlobalParams& serverParams) {
         warned = true;
     }
 
-    if (serverParams.authState == ServerGlobalParams::AuthState::kUndefined) {
-        log() << startupWarningsLog;
-        log() << "** WARNING: Access control is not enabled for the database."
-              << startupWarningsLog;
-        log() << "**          Read and write access to data and configuration is "
-                 "unrestricted."
-              << startupWarningsLog;
-        warned = true;
-    }
-
     const bool is32bit = sizeof(int*) == 4;
     if (is32bit) {
         log() << startupWarningsLog;

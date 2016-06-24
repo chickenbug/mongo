@@ -137,42 +137,19 @@ void AuthorizationSession::grantInternalAuthorization() {
 
 PrivilegeVector AuthorizationSession::getDefaultPrivileges() {
     PrivilegeVector defaultPrivileges;
-
-    // If localhost exception is active (and no users exist),
-    // return a vector of the minimum privileges required to bootstrap
-    // a system and add the first user.
-    if (_externalState->shouldAllowLocalhost()) {
-        ResourcePattern adminDBResource = ResourcePattern::forDatabaseName(ADMIN_DBNAME);
-        ActionSet setupAdminUserActionSet;
-        setupAdminUserActionSet.addAction(ActionType::createUser);
-        setupAdminUserActionSet.addAction(ActionType::grantRole);
-        Privilege setupAdminUserPrivilege = Privilege(adminDBResource, setupAdminUserActionSet);
-
-        ResourcePattern externalDBResource = ResourcePattern::forDatabaseName("$external");
-        Privilege setupExternalUserPrivilege =
-            Privilege(externalDBResource, ActionType::createUser);
-
+    ClientBasic* client = ClientBasic::getCurrent();
+    // If this server is an arbiter on localhost, add specific privileges meant to circumvent
+    // the behavior of an arbiter in an authenticated replset. See SERVER-5479.
+    if (client->getIsLocalHostConnection() && _externalState->serverIsArbiter()) {
         ActionSet setupServerConfigActionSet;
+        setupServerConfigActionSet.addAction(ActionType::getCmdLineOpts);
+        setupServerConfigActionSet.addAction(ActionType::getParameter);
+        setupServerConfigActionSet.addAction(ActionType::serverStatus);
+        setupServerConfigActionSet.addAction(ActionType::shutdown);
 
-        // If this server is an arbiter, add specific privileges meant to circumvent
-        // the behavior of an arbiter in an authenticated replset. See SERVER-5479.
-        if (_externalState->serverIsArbiter()) {
-            setupServerConfigActionSet.addAction(ActionType::getCmdLineOpts);
-            setupServerConfigActionSet.addAction(ActionType::getParameter);
-            setupServerConfigActionSet.addAction(ActionType::serverStatus);
-            setupServerConfigActionSet.addAction(ActionType::shutdown);
-        }
-
-        setupServerConfigActionSet.addAction(ActionType::addShard);
-        setupServerConfigActionSet.addAction(ActionType::replSetConfigure);
-        setupServerConfigActionSet.addAction(ActionType::replSetGetStatus);
         Privilege setupServerConfigPrivilege =
             Privilege(ResourcePattern::forClusterResource(), setupServerConfigActionSet);
-
-        Privilege::addPrivilegeToPrivilegeVector(&defaultPrivileges, setupAdminUserPrivilege);
-        Privilege::addPrivilegeToPrivilegeVector(&defaultPrivileges, setupExternalUserPrivilege);
         Privilege::addPrivilegeToPrivilegeVector(&defaultPrivileges, setupServerConfigPrivilege);
-        return defaultPrivileges;
     }
 
     return defaultPrivileges;
@@ -373,25 +350,8 @@ Status AuthorizationSession::checkAuthorizedToRevokePrivilege(const Privilege& p
 
 bool AuthorizationSession::isAuthorizedToCreateRole(
     const struct auth::CreateOrUpdateRoleArgs& args) {
-    // A user is allowed to create a role under either of two conditions.
-
-    // The user may create a role if the authorization system says they are allowed to.
-    if (isAuthorizedForActionsOnResource(ResourcePattern::forDatabaseName(args.roleName.getDB()),
-                                         ActionType::createRole)) {
-        return true;
-    }
-
-    // The user may create a role if the localhost exception is enabled, and they already own the
-    // role. This implies they have obtained the role through an external authorization mechanism.
-    if (_externalState->shouldAllowLocalhost()) {
-        for (const User* const user : _authenticatedUsers) {
-            if (user->hasRole(args.roleName)) {
-                return true;
-            }
-        }
-    }
-
-    return false;
+    return isAuthorizedForActionsOnResource(ResourcePattern::forDatabaseName(args.roleName.getDB()),
+                                            ActionType::createRole);
 }
 
 bool AuthorizationSession::isAuthorizedToGrantRole(const RoleName& role) {

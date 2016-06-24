@@ -59,13 +59,6 @@ public:
     // are that auth isn't enabled or the connection is a "god" connection.
     virtual bool shouldIgnoreAuthChecks() const = 0;
 
-    // Returns true if this connection should be treated as a localhost connection with no
-    // admin authentication users created. This condition is used to allow the creation of
-    // the first user on a server with authorization enabled.
-    // NOTE: _checkShouldAllowLocalhost MUST be called at least once before any call to
-    // shouldAllowLocalhost or we could ignore auth checks incorrectly.
-    virtual bool shouldAllowLocalhost() const = 0;
-
     // Returns true if this connection should allow extra server configuration actions under
     // the localhost exception. This condition is used to allow special privileges on arbiters.
     // See SERVER-5479 for details on when this may be removed.

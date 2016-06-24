@@ -41,18 +41,12 @@
 
 namespace mongo {
 
-namespace {
-MONGO_EXPORT_STARTUP_SERVER_PARAMETER(enableLocalhostAuthBypass, bool, true);
-}  // namespace
-
-// NOTE: we default _allowLocalhost to true under the assumption that _checkShouldAllowLocalhost
-// will always be called before any calls to shouldAllowLocalhost.  If this is not the case,
-// it could cause a security hole.
 AuthzSessionExternalStateServerCommon::AuthzSessionExternalStateServerCommon(
     AuthorizationManager* authzManager)
-    : AuthzSessionExternalState(authzManager), _allowLocalhost(enableLocalhostAuthBypass) {}
+    : AuthzSessionExternalState(authzManager) {}
 AuthzSessionExternalStateServerCommon::~AuthzSessionExternalStateServerCommon() {}
 
+<<<<<<< 2ab0505a4eb805f56d9ec2b721977691e6d2036d
 void AuthzSessionExternalStateServerCommon::_checkShouldAllowLocalhost(OperationContext* txn) {
     if (!_authzManager->isAuthEnabled())
         return;
@@ -75,15 +69,20 @@ void AuthzSessionExternalStateServerCommon::_checkShouldAllowLocalhost(Operation
     }
 }
 
+=======
+>>>>>>> Introduce auth_on PoC
 bool AuthzSessionExternalStateServerCommon::serverIsArbiter() const {
     return false;
 }
 
+<<<<<<< 2ab0505a4eb805f56d9ec2b721977691e6d2036d
 bool AuthzSessionExternalStateServerCommon::shouldAllowLocalhost() const {
     Client* client = Client::getCurrent();
     return _allowLocalhost && client->getIsLocalHostConnection();
 }
 
+=======
+>>>>>>> Introduce auth_on PoC
 bool AuthzSessionExternalStateServerCommon::shouldIgnoreAuthChecks() const {
     return !_authzManager->isAuthEnabled();
 }

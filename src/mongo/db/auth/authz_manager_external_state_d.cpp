@@ -36,6 +36,7 @@
 #include "mongo/db/auth/authorization_manager.h"
 #include "mongo/db/auth/authz_session_external_state_d.h"
 #include "mongo/db/auth/user_name.h"
+#include "mongo/db/catalog/collection.h"
 #include "mongo/db/client.h"
 #include "mongo/db/db_raii.h"
 #include "mongo/db/dbdirectclient.h"
@@ -48,6 +49,7 @@
 #include "mongo/util/assert_util.h"
 #include "mongo/util/log.h"
 #include "mongo/util/mongoutils/str.h"
+#include "mongo/util/scopeguard.h"
 
 namespace mongo {
 
@@ -57,6 +59,68 @@ AuthzManagerExternalStateMongod::~AuthzManagerExternalStateMongod() = default;
 std::unique_ptr<AuthzSessionExternalState>
 AuthzManagerExternalStateMongod::makeAuthzSessionExternalState(AuthorizationManager* authzManager) {
     return stdx::make_unique<AuthzSessionExternalStateMongod>(authzManager);
+}
+
+Status AuthzManagerExternalStateMongod::initialize(OperationContext* txn) {
+    AuthzManagerExternalStateLocal::initialize(txn);
+    if (!hasAnyPrivilegeDocuments(txn)) {
+        log() << "Creating localhost default root user without credentials.";
+        _insertRootUser(txn);
+    }
+    return Status::OK();
+}
+
+void AuthzManagerExternalStateMongod::_insertRootUser(OperationContext* txn) {
+    std::string rootUser = AuthorizationManager::rootUserName.getUser().toString();
+    std::string rootDB = AuthorizationManager::rootUserName.getDB().toString();
+    BSONObj userObj = BSON(
+        "_id" << rootDB + "." + rootUser << AuthorizationManager::USER_NAME_FIELD_NAME << rootUser
+              << AuthorizationManager::USER_DB_FIELD_NAME
+              << rootDB
+              << "credentials"
+              << BSONObj()
+              << "roles"
+              << BSON_ARRAY(BSON(AuthorizationManager::ROLE_NAME_FIELD_NAME
+                                 << "root"
+                                 << AuthorizationManager::ROLE_DB_FIELD_NAME
+                                 << rootDB)));
+    BSONObj authObj = BSON("_id"
+                           << "authSchema"
+                           << AuthorizationManager::schemaVersionFieldName
+                           << AuthorizationManager::schemaVersion28SCRAM);
+
+    ScopedTransaction transaction(txn, MODE_X);
+    Lock::GlobalWrite lk(txn->lockState());
+
+    AutoGetOrCreateDb autoDb(txn, rootDB, mongo::MODE_X);
+    Database* db = autoDb.getDb();
+
+    WriteUnitOfWork wunit(txn);
+
+    bool shouldReplicateWrites = txn->writesAreReplicated();
+    auto resetWrites = MakeGuard(
+        [txn, shouldReplicateWrites]() { txn->setReplicatedWrites(shouldReplicateWrites); });
+    txn->setReplicatedWrites(false);
+
+    // Insert User
+    Collection* systemUsersCollection =
+        db->getOrCreateCollection(txn, AuthorizationManager::usersCollectionNamespace.ns());
+    invariant(systemUsersCollection);
+    uassertStatusOK(systemUsersCollection->insertDocument(txn, userObj, nullptr, false));
+
+    // Insert Auth Schema Doc if one does not exist
+    BSONObj existingAuthObj;
+    Status statusFindAuthSchema =
+        findOne(txn, AuthorizationManager::versionCollectionNamespace, BSONObj(), &existingAuthObj);
+
+    if (statusFindAuthSchema == ErrorCodes::NoMatchingDocument) {
+        Collection* authSchemaCollection =
+            db->getOrCreateCollection(txn, AuthorizationManager::versionCollectionNamespace.ns());
+        invariant(authSchemaCollection);
+        uassertStatusOK(authSchemaCollection->insertDocument(txn, authObj, nullptr, false));
+    }
+
+    wunit.commit();
 }
 
 Status AuthzManagerExternalStateMongod::query(

@@ -52,6 +52,11 @@ public:
     std::unique_ptr<AuthzSessionExternalState> makeAuthzSessionExternalState(
         AuthorizationManager* authzManager) override;
 
+    /**
+     * Override that additionally inserts 'root' default user if needed.
+    **/
+    Status initialize(OperationContext* txn) override;
+
     virtual Status findOne(OperationContext* txn,
                            const NamespaceString& collectionName,
                            const BSONObj& query,
@@ -61,6 +66,12 @@ public:
                          const BSONObj& query,
                          const BSONObj& projection,
                          const stdx::function<void(const BSONObj&)>& resultProcessor);
+
+private:
+    /**
+     * Inserts 'root' default user, use for the localhost bypass.
+    **/
+    void _insertRootUser(OperationContext* txn);
 };
 
 }  // namespace mongo

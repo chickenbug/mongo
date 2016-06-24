@@ -34,12 +34,15 @@
 
 #include "mongo/base/init.h"
 #include "mongo/base/status.h"
+#include "mongo/crypto/crypto.h"
+#include "mongo/crypto/mechanism_scram.h"
 #include "mongo/db/auth/authorization_manager.h"
 #include "mongo/db/auth/user.h"
 #include "mongo/db/jsobj.h"
 #include "mongo/db/namespace_string.h"
 #include "mongo/util/log.h"
 #include "mongo/util/mongoutils/str.h"
+#include "mongo/util/password_digest.h"
 #include "mongo/util/stringutils.h"
 
 namespace mongo {
@@ -301,7 +304,7 @@ std::string V2UserDocumentParser::extractUserNameFromUserDocument(const BSONObj&
 }
 
 Status V2UserDocumentParser::initializeUserCredentialsFromUserDocument(
-    User* user, const BSONObj& privDoc) const {
+    OperationContext* txn, User* user, const BSONObj& privDoc) const {
     User::CredentialData credentials;
     std::string userDB = privDoc[AuthorizationManager::USER_DB_FIELD_NAME].String();
     BSONElement credentialsElement = privDoc[CREDENTIALS_FIELD_NAME];
@@ -331,9 +334,28 @@ Status V2UserDocumentParser::initializeUserCredentialsFromUserDocument(
                 credentialsElement.Obj()[MONGODB_CR_CREDENTIAL_FIELD_NAME];
 
             if (scramElement.eoo() && mongoCRCredentialElement.eoo()) {
-                return Status(ErrorCodes::UnsupportedFormat,
-                              "User documents must provide credentials for SCRAM-SHA-1 "
-                              "or MONGODB-CR authentication");
+                bool clientLocalHost = txn->getClient()->getIsLocalHostConnection();
+                if (user->getName() == AuthorizationManager::rootUserName && clientLocalHost) {
+                    // Generate credentials if default 'root' user with no credentials on localhost
+                    // connection. Use 1 for the scramIterationCount as this is a default password
+                    const int localhostScramIterationCount = 1;
+                    std::string rootDigest =
+                        createPasswordDigest(AuthorizationManager::rootUserName.getUser(), "");
+                    BSONObj rootScramCreds =
+                        scram::generateCredentials(rootDigest, localhostScramIterationCount);
+
+                    credentials.scram.iterationCount =
+                        rootScramCreds[scram::iterationCountFieldName].Int();
+                    credentials.scram.salt = rootScramCreds[scram::saltFieldName].String();
+                    credentials.scram.storedKey =
+                        rootScramCreds[scram::storedKeyFieldName].String();
+                    credentials.scram.serverKey =
+                        rootScramCreds[scram::serverKeyFieldName].String();
+                } else {
+                    return Status(ErrorCodes::UnsupportedFormat,
+                                  "User documents must provide credentials for SCRAM-SHA-1 "
+                                  "or MONGODB-CR authentication");
+                }
             }
 
             if (!scramElement.eoo()) {

@@ -53,6 +53,7 @@
 #include "mongo/db/auth/user_name.h"
 #include "mongo/db/auth/user_name_hash.h"
 #include "mongo/db/jsobj.h"
+#include "mongo/db/repl/replication_coordinator.h"
 #include "mongo/platform/compiler.h"
 #include "mongo/platform/unordered_map.h"
 #include "mongo/stdx/memory.h"
@@ -111,6 +112,8 @@ const int AuthorizationManager::schemaVersion24;
 const int AuthorizationManager::schemaVersion26Upgrade;
 const int AuthorizationManager::schemaVersion26Final;
 const int AuthorizationManager::schemaVersion28SCRAM;
+
+const UserName AuthorizationManager::rootUserName("root", "admin");
 
 /**
  * Guard object for synchronizing accesses to data cached in AuthorizationManager instances.
@@ -380,7 +383,8 @@ Status AuthorizationManager::getBSONForRole(RoleGraph* graph,
     return Status::OK();
 }
 
-Status AuthorizationManager::_initializeUserFromPrivilegeDocument(User* user,
+Status AuthorizationManager::_initializeUserFromPrivilegeDocument(OperationContext* txn,
+                                                                  User* user,
                                                                   const BSONObj& privDoc) {
     V2UserDocumentParser parser;
     std::string userName = parser.extractUserNameFromUserDocument(privDoc);
@@ -394,7 +398,7 @@ Status AuthorizationManager::_initializeUserFromPrivilegeDocument(User* user,
                       0);
     }
 
-    Status status = parser.initializeUserCredentialsFromUserDocument(user, privDoc);
+    Status status = parser.initializeUserCredentialsFromUserDocument(txn, user, privDoc);
     if (!status.isOK()) {
         return status;
     }
@@ -467,6 +471,14 @@ Status AuthorizationManager::acquireUser(OperationContext* txn,
         it->second->incrementRefCount();
         *acquiredUser = it->second;
         return Status::OK();
+    }
+
+    // Used to prevent authentication to the default 'root' user on arbiters
+    if (repl::ReplicationCoordinator::get(txn)->getReplicationMode() ==
+            repl::ReplicationCoordinator::modeReplSet &&
+        repl::ReplicationCoordinator::get(txn)->getMemberState().arbiter()) {
+        return Status(ErrorCodes::IllegalOperation,
+                      "Cannot acquire non __system users on arbiters");
     }
 
     std::unique_ptr<User> user;
@@ -548,7 +560,7 @@ Status AuthorizationManager::_fetchUserV2(OperationContext* txn,
     // initializing the user.
     std::unique_ptr<User> user(new User(userName));
 
-    status = _initializeUserFromPrivilegeDocument(user.get(), userObj);
+    status = _initializeUserFromPrivilegeDocument(txn, user.get(), userObj);
     if (!status.isOK()) {
         return status;
     }

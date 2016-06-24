@@ -104,9 +104,9 @@ struct ServerGlobalParams {
     BSONArray argvArray;
     BSONObj parsedOpts;
 
-    enum AuthState { kEnabled, kDisabled, kUndefined };
+    enum AuthState { kEnabled, kDisabled };
 
-    AuthState authState = AuthState::kUndefined;
+    AuthState authState = AuthState::kEnabled;
 
     bool transitionToAuth = false;  // --transitionToAuth, mixed mode for rolling auth upgrade
     AtomicInt32 clusterAuthMode;    // --clusterAuthMode, the internal cluster auth mode

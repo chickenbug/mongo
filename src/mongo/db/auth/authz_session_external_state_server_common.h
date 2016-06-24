@@ -44,20 +44,11 @@ class AuthzSessionExternalStateServerCommon : public AuthzSessionExternalState {
 public:
     virtual ~AuthzSessionExternalStateServerCommon();
 
-    virtual bool shouldAllowLocalhost() const;
     virtual bool shouldIgnoreAuthChecks() const;
     virtual bool serverIsArbiter() const;
 
 protected:
     AuthzSessionExternalStateServerCommon(AuthorizationManager* authzManager);
-
-    // Checks whether or not localhost connections should be given full access and stores the
-    // result in _allowLocalhost.  Currently localhost connections are only given full access
-    // if there are no users in the admin database.
-    void _checkShouldAllowLocalhost(OperationContext* txn);
-
-private:
-    bool _allowLocalhost;
 };
 
 }  // namespace mongo

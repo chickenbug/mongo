@@ -45,15 +45,10 @@ public:
     AuthzSessionExternalStateMock(AuthorizationManager* authzManager)
         : AuthzSessionExternalState(authzManager),
           _ignoreAuthChecksReturnValue(false),
-          _allowLocalhostReturnValue(false),
           _serverIsArbiterReturnValue(false) {}
 
     virtual bool shouldIgnoreAuthChecks() const {
         return _ignoreAuthChecksReturnValue;
-    }
-
-    virtual bool shouldAllowLocalhost() const {
-        return _allowLocalhostReturnValue;
     }
 
     virtual bool serverIsArbiter() const {
@@ -64,15 +59,10 @@ public:
         _ignoreAuthChecksReturnValue = returnValue;
     }
 
-    void setReturnValueForShouldAllowLocalhost(bool returnValue) {
-        _allowLocalhostReturnValue = returnValue;
-    }
-
     virtual void startRequest(OperationContext* txn) {}
 
 private:
     bool _ignoreAuthChecksReturnValue;
-    bool _allowLocalhostReturnValue;
     bool _serverIsArbiterReturnValue;
 };
 

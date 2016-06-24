@@ -119,10 +119,6 @@ Status addMongodOptions(moe::OptionSection* options) {
     general_options.addOptionChaining("security.authSchemaVersion", "", moe::String, "TODO")
         .setSources(moe::SourceYAMLConfig);
 
-    general_options.addOptionChaining("security.enableLocalhostAuthBypass", "", moe::String, "TODO")
-        .setSources(moe::SourceYAMLConfig);
-
-
     // Network Options
 
     general_options.addOptionChaining("net.http.JSONPEnabled",
