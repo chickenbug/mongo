@@ -304,7 +304,7 @@ std::string V2UserDocumentParser::extractUserNameFromUserDocument(const BSONObj&
 }
 
 Status V2UserDocumentParser::initializeUserCredentialsFromUserDocument(
-    OperationContext* txn, User* user, const BSONObj& privDoc) const {
+    User* user, const BSONObj& privDoc) const {
     User::CredentialData credentials;
     std::string userDB = privDoc[AuthorizationManager::USER_DB_FIELD_NAME].String();
     BSONElement credentialsElement = privDoc[CREDENTIALS_FIELD_NAME];
@@ -334,10 +334,9 @@ Status V2UserDocumentParser::initializeUserCredentialsFromUserDocument(
                 credentialsElement.Obj()[MONGODB_CR_CREDENTIAL_FIELD_NAME];
 
             if (scramElement.eoo() && mongoCRCredentialElement.eoo()) {
-                bool clientLocalHost = txn->getClient()->getIsLocalHostConnection();
-                if (user->getName() == AuthorizationManager::rootUserName && clientLocalHost) {
-                    // Generate credentials if default 'root' user with no credentials on localhost
-                    // connection. Use 1 for the scramIterationCount as this is a default password
+                if (user->getName() == AuthorizationManager::rootUserName) {
+                    // Generate credentials if default 'root' user with no credentials and mark user
+                    // as localhost only. Use 1 for scramIterationCount as it is a default password
                     const int localhostScramIterationCount = 1;
                     std::string rootDigest =
                         createPasswordDigest(AuthorizationManager::rootUserName.getUser(), "");
@@ -351,6 +350,7 @@ Status V2UserDocumentParser::initializeUserCredentialsFromUserDocument(
                         rootScramCreds[scram::storedKeyFieldName].String();
                     credentials.scram.serverKey =
                         rootScramCreds[scram::serverKeyFieldName].String();
+                    credentials.localhostUser = true;
                 } else {
                     return Status(ErrorCodes::UnsupportedFormat,
                                   "User documents must provide credentials for SCRAM-SHA-1 "

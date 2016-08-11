@@ -300,9 +300,7 @@ public:
      * This should never be called from outside the AuthorizationManager - the only reason it's
      * public instead of private is so it can be unit tested.
      */
-    Status _initializeUserFromPrivilegeDocument(OperationContext* txn,
-                                                User* user,
-                                                const BSONObj& privDoc);
+    Status _initializeUserFromPrivilegeDocument(User* user, const BSONObj& privDoc);
 
     /**
      * Hook called by replication code to let the AuthorizationManager observe changes
@@ -349,6 +347,12 @@ private:
     Status _fetchUserV2(OperationContext* txn,
                         const UserName& userName,
                         std::unique_ptr<User>* acquiredUser);
+
+    /*
+     * Checks if Client connection is correct for user type. Returns bad status if user is a
+     * localhostUser and the Client is a remote connection.
+     */
+    Status _checkValidConnectionForUser(OperationContext* txn, User* user);
 
     /**
      * True if AuthSchema startup checks should be applied in this AuthorizationManager.

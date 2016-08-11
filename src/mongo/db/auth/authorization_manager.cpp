@@ -383,8 +383,7 @@ Status AuthorizationManager::getBSONForRole(RoleGraph* graph,
     return Status::OK();
 }
 
-Status AuthorizationManager::_initializeUserFromPrivilegeDocument(OperationContext* txn,
-                                                                  User* user,
+Status AuthorizationManager::_initializeUserFromPrivilegeDocument(User* user,
                                                                   const BSONObj& privDoc) {
     V2UserDocumentParser parser;
     std::string userName = parser.extractUserNameFromUserDocument(privDoc);
@@ -398,7 +397,7 @@ Status AuthorizationManager::_initializeUserFromPrivilegeDocument(OperationConte
                       0);
     }
 
-    Status status = parser.initializeUserCredentialsFromUserDocument(txn, user, privDoc);
+    Status status = parser.initializeUserCredentialsFromUserDocument(user, privDoc);
     if (!status.isOK()) {
         return status;
     }
@@ -464,15 +463,20 @@ Status AuthorizationManager::acquireUser(OperationContext* txn,
         guard.wait();
     }
 
+    Status status = Status::OK();
     if (it != _userCache.end()) {
         fassert(16914, it->second);
         fassert(17003, it->second->isValid());
         fassert(17008, it->second->getRefCount() > 0);
+        status = _checkValidConnectionForUser(txn, it->second);
+        if (!status.isOK()) {
+            return status;
+        }
+
         it->second->incrementRefCount();
         *acquiredUser = it->second;
         return Status::OK();
     }
-
     // Used to prevent authentication to the default 'root' user on arbiters
     if (repl::ReplicationCoordinator::get(txn)->getReplicationMode() ==
             repl::ReplicationCoordinator::modeReplSet &&
@@ -490,10 +494,9 @@ Status AuthorizationManager::acquireUser(OperationContext* txn,
     // AuthSchemaIncompatible errors.  These errors should only ever occur during and shortly
     // after schema upgrades.
     static const int maxAcquireRetries = 2;
-    Status status = Status::OK();
     for (int i = 0; i < maxAcquireRetries; ++i) {
         if (authzVersion == schemaVersionInvalid) {
-            Status status = _externalState->getStoredAuthorizationVersion(txn, &authzVersion);
+            status = _externalState->getStoredAuthorizationVersion(txn, &authzVersion);
             if (!status.isOK())
                 return status;
         }
@@ -530,6 +533,11 @@ Status AuthorizationManager::acquireUser(OperationContext* txn,
 
     guard.endFetchPhase();
 
+    status = _checkValidConnectionForUser(txn, user.get());
+    if (!status.isOK()) {
+        return status;
+    }
+
     user->incrementRefCount();
     // NOTE: It is not safe to throw an exception from here to the end of the method.
     if (guard.isSameCacheGeneration()) {
@@ -560,11 +568,20 @@ Status AuthorizationManager::_fetchUserV2(OperationContext* txn,
     // initializing the user.
     std::unique_ptr<User> user(new User(userName));
 
-    status = _initializeUserFromPrivilegeDocument(txn, user.get(), userObj);
+    status = _initializeUserFromPrivilegeDocument(user.get(), userObj);
     if (!status.isOK()) {
         return status;
     }
     acquiredUser->reset(user.release());
+    return Status::OK();
+}
+
+Status AuthorizationManager::_checkValidConnectionForUser(OperationContext* txn, User* user) {
+    bool clientLocalHost = txn->getClient()->getIsLocalHostConnection();
+    if (user->getCredentials().localhostUser && !clientLocalHost) {
+        return Status(ErrorCodes::IllegalOperation,
+                      "Default 'root' user can only be acquired on localhost");
+    }
     return Status::OK();
 }
 

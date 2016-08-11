@@ -69,9 +69,7 @@ public:
 
     std::string extractUserNameFromUserDocument(const BSONObj& doc) const;
 
-    Status initializeUserCredentialsFromUserDocument(OperationContext* txn,
-                                                     User* user,
-                                                     const BSONObj& privDoc) const;
+    Status initializeUserCredentialsFromUserDocument(User* user, const BSONObj& privDoc) const;
 
     Status initializeUserRolesFromUserDocument(const BSONObj& doc, User* user) const;
     Status initializeUserIndirectRolesFromUserDocument(const BSONObj& doc, User* user) const;

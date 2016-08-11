@@ -68,11 +68,12 @@ public:
         std::string storedKey;
     };
     struct CredentialData {
-        CredentialData() : password(""), scram(), isExternal(false) {}
+        CredentialData() : password(""), scram(), isExternal(false), localhostUser(false) {}
 
         std::string password;
         SCRAMCredentials scram;
         bool isExternal;
+        bool localhostUser;
     };
 
     typedef unordered_map<ResourcePattern, Privilege> ResourcePrivilegeMap;
