@@ -46,43 +46,10 @@ AuthzSessionExternalStateServerCommon::AuthzSessionExternalStateServerCommon(
     : AuthzSessionExternalState(authzManager) {}
 AuthzSessionExternalStateServerCommon::~AuthzSessionExternalStateServerCommon() {}
 
-<<<<<<< 2ab0505a4eb805f56d9ec2b721977691e6d2036d
-void AuthzSessionExternalStateServerCommon::_checkShouldAllowLocalhost(OperationContext* txn) {
-    if (!_authzManager->isAuthEnabled())
-        return;
-    // If we know that an admin user exists, don't re-check.
-    if (!_allowLocalhost)
-        return;
-    // Don't bother checking if we're not on a localhost connection
-    if (!Client::getCurrent()->getIsLocalHostConnection()) {
-        _allowLocalhost = false;
-        return;
-    }
-
-    _allowLocalhost = !_authzManager->hasAnyPrivilegeDocuments(txn);
-    if (_allowLocalhost) {
-        ONCE {
-            log() << "note: no users configured in admin.system.users, allowing localhost "
-                     "access"
-                  << std::endl;
-        }
-    }
-}
-
-=======
->>>>>>> Introduce auth_on PoC
 bool AuthzSessionExternalStateServerCommon::serverIsArbiter() const {
     return false;
 }
 
-<<<<<<< 2ab0505a4eb805f56d9ec2b721977691e6d2036d
-bool AuthzSessionExternalStateServerCommon::shouldAllowLocalhost() const {
-    Client* client = Client::getCurrent();
-    return _allowLocalhost && client->getIsLocalHostConnection();
-}
-
-=======
->>>>>>> Introduce auth_on PoC
 bool AuthzSessionExternalStateServerCommon::shouldIgnoreAuthChecks() const {
     return !_authzManager->isAuthEnabled();
 }

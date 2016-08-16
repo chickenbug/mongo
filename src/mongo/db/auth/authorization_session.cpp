@@ -137,7 +137,7 @@ void AuthorizationSession::grantInternalAuthorization() {
 
 PrivilegeVector AuthorizationSession::getDefaultPrivileges() {
     PrivilegeVector defaultPrivileges;
-    ClientBasic* client = ClientBasic::getCurrent();
+    Client* client = Client::getCurrent();
     // If this server is an arbiter on localhost, add specific privileges meant to circumvent
     // the behavior of an arbiter in an authenticated replset. See SERVER-5479.
     if (client->getIsLocalHostConnection() && _externalState->serverIsArbiter()) {
